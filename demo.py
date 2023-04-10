@@ -239,7 +239,7 @@ def main():
         bus = Bus(args.address or 'tcp://127.0.0.1:*',
                   ping_interval_secs=args.ping_interval,
                   ping_timeout_secs=args.ping_timeout)
-        threads.append(Thread(name='Bus', target=bus.run_forever))
+        threads.append(Thread(name='Bus', target=bus.run))
         address = bus.address
         authkey = bus.authkey
 

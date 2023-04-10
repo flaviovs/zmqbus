@@ -301,7 +301,7 @@ class Bus:  # pylint: disable=too-many-instance-attributes
                       args=(self._ctx, xpub, xsub, control_address,
                             sys.flags.dev_mode))
 
-    def run_forever(self) -> None:
+    def run(self) -> None:
         control = self._ctx.socket(zmq.PUSH)
         control.bind(f'inproc://zmqbus.control.{id(self)}')
 
@@ -309,7 +309,7 @@ class Bus:  # pylint: disable=too-many-instance-attributes
         proxy_t.start()
 
         try:
-            self._run_forever()
+            self._run()
         finally:
             self._auth.stop()
 
@@ -335,7 +335,7 @@ class Bus:  # pylint: disable=too-many-instance-attributes
 
             self._connections.clear()
 
-    def _run_forever(self) -> None:
+    def _run(self) -> None:
         self._pub = self._ctx.socket(zmq.PUB)
         self._pub.set_string(zmq.PLAIN_USERNAME, __name__)
         self._pub.set_string(zmq.PLAIN_PASSWORD, self._authkey.hex())

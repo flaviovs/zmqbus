@@ -66,7 +66,7 @@ def main() -> None:
         sys.exit(f'{sys.argv[0]}: File already exists: {args.output}')
 
     try:
-        bus.run_forever()
+        bus.run()
     except KeyboardInterrupt:
         pass
 
