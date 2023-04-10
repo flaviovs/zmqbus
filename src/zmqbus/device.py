@@ -385,3 +385,32 @@ class Dispatcher(Device):
             self._pending_removal[topic].add(ref)
         except KeyError:
             self._pending_removal[topic] = {ref}
+
+
+class Random(Device):
+    def __init__(self,  # pylint: disable=too-many-arguments
+                 name: Optional[str] = None,
+                 topic: Optional[str] = None,
+                 wait_secs: float = 1,
+                 min_value: float = 0.0,
+                 max_value: float = 1.0,
+                 params: Optional[DeviceParams] = None):
+        super().__init__(name, params)
+        if wait_secs <= 0:
+            raise ValueError('Wait must be greater than zero, '
+                             f'got {wait_secs}')
+        self._topic = topic or self.name
+        self._wait_secs = wait_secs
+        self._min_value = min_value
+        self._max_value = max_value
+
+    def run(self, conn: Connection) -> None:
+        while conn.is_alive():
+            try:
+                conn.send(self._topic,
+                          payload=random.uniform(self._min_value,
+                                                 self._max_value))
+                conn.sleep(self._wait_secs)
+            except BrokenPipeError:
+                break
+        logger.debug('%r exiting', self.name)

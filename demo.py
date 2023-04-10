@@ -9,7 +9,7 @@ from threading import Thread, current_thread, enumerate as t_enumerate
 
 from zmqbus import Bus, Connection, halt, Message
 from zmqbus.device import (Device, Pulse, Scheduler, ScheduledMessage,
-                           Clock, PerfMeter, Dispatcher)
+                           Clock, PerfMeter, Dispatcher, Random)
 from zmqbus.debug import Sniffer, ControlSniffer, PulseTracker
 
 try:
@@ -46,10 +46,17 @@ class DemoDispatcher(Dispatcher):
                     msg.payload.avg_ms, msg.sender, msg.payload.clock,
                     msg.payload.samples)
 
+    def _random_logger(self, conn: Connection, msg: Message):
+        logger.info('Got a random number: %f', msg.payload)
+        if msg.payload < 0.03:
+            logger.warning('Got a low random number -- removing random logger')
+            self.remove_callback('random', self._random_logger)
+
     def _init_callbacks(self):
         self.add_callback('PerfMeter', self._perf_meter_logger)
         self.add_callback('worker.busy', self._busy_worker_logger)
         self.add_callback('worker.free', self._free_worker_logger)
+        self.add_callback('random', self._random_logger)
 
     def init(self, conn):
         super().init(conn)
@@ -186,6 +193,9 @@ def get_args():
     group.add_argument('--no-clock',
                        action='store_true',
                        help='do not start a clock thread')
+    group.add_argument('--no-random',
+                       action='store_true',
+                       help='do not start a random thread')
 
     return parser.parse_args()
 
@@ -247,6 +257,11 @@ def main():
 
     dev = DemoDispatcher()
     threads.append(Thread(name=dev.name, target=dev, args=(address, authkey)))
+
+    if not args.no_random:
+        dev = Random(name='Random', topic='random', wait_secs=10 * speed_mult)
+        threads.append(Thread(name=dev.name, target=dev,
+                              args=(address, authkey)))
 
     if not args.no_clock:
         dev = Clock(name='Clock')
