@@ -42,7 +42,7 @@ class DemoDispatcher(Dispatcher):
 
     def _perf_meter_logger(self, conn: Connection, msg: Message):
         logger.info('Average latency %.2f ms measured by %r from '
-                    '%r after %d messages',
+                    '%r from the last %d messages',
                     msg.payload.avg_ms, msg.sender, msg.payload.clock,
                     msg.payload.samples)
 
