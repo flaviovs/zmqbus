@@ -493,7 +493,7 @@ class Connection:  # pylint: disable=too-many-instance-attributes
 
         self._pending: Deque[MESSAGE_FACTORY] = deque()
 
-        self._keepalive_secs = keepalive_secs
+        self.keepalive_secs = keepalive_secs
         self._last_keepalive: float
 
         self._subscribe_control = False
@@ -589,11 +589,11 @@ class Connection:  # pylint: disable=too-many-instance-attributes
         if not self._pub:
             return False
 
-        if not self._keepalive_secs:
+        if not self.keepalive_secs:
             return True
 
         now = time.perf_counter()
-        if (now - self._last_keepalive) <= self._keepalive_secs:
+        if (now - self._last_keepalive) <= self.keepalive_secs:
             return True
 
         if self._req.poll(timeout=self._timeout, flags=zmq.POLLOUT) == 0:
