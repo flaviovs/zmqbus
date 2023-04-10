@@ -173,7 +173,7 @@ _authkey: Optional[bytes] = None
 
 
 def get_authkey() -> bytes:
-    global _authkey  # pylint: disable=global-statement
+    global _authkey  # pylint: disable=global-statement,invalid-name
     if not _authkey:
         _authkey = secrets.token_bytes()
     return _authkey
