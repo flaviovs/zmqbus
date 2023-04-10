@@ -2,15 +2,25 @@ import abc
 import logging
 import random
 import time
+import weakref
 from collections import deque
 from typing import (NamedTuple, Optional, Callable, Sequence, Dict,
-                    Any, Union, Deque, Set)
+                    Any, Union, Deque, Set, TypeVar)
 
 import zmq
 
 from zmqbus import Connection, Message
 
 logger = logging.getLogger(__name__)
+
+# pylint: disable-next=invalid-name
+_TCallable = TypeVar('_TCallable', bound=Callable[..., Any])
+
+
+def _get_weakref(callback: _TCallable) -> weakref.ReferenceType[_TCallable]:
+    return (weakref.WeakMethod(callback)
+            if hasattr(callback, '__self__')
+            else weakref.ref(callback))
 
 
 class DeviceParams(NamedTuple):
@@ -259,13 +269,22 @@ class PerfMeter(Device):
             last = msg.payload
 
 
+DispatcherCallable = Callable[[Connection, Message], None]
+
+
 class Dispatcher(Device):
     def __init__(self, name: Optional[str] = None,
                  params: Optional[DeviceParams] = None):
         super().__init__(name, params)
         self._callbacks: Dict[str,
-                              Set[Callable[[Connection, Message], None]]] = {}
+                              Set[weakref.ReferenceType[
+                                  DispatcherCallable]]] = {}
         self._conn: Optional[Connection] = None
+
+        self._is_running = False
+        self._pending_removal: Dict[str,
+                                    Set[weakref.ReferenceType[
+                                        DispatcherCallable]]] = {}
 
     def _check_connection(self) -> None:
         if not self._conn:
@@ -277,22 +296,28 @@ class Dispatcher(Device):
 
     def add_callback(self,
                      topic: str,
-                     callback: Callable[[Connection, Message], None]) -> None:
+                     callback: DispatcherCallable) -> None:
         self._check_connection()
+        ref = _get_weakref(callback)
         try:
-            if callback in self._callbacks[topic]:
+            if ref in self._callbacks[topic]:
                 raise ValueError(f'{callback} already set for {topic!r}')
         except KeyError:
             self._callbacks[topic] = set()
             assert self._conn
             self._conn.subscribe(topic)
-        self._callbacks[topic].add(callback)
+        self._callbacks[topic].add(ref)
 
     def remove_callback(self,
                         topic: str,
-                        callback: Callable[[Connection, Message],
-                                           None]) -> None:
-        self._callbacks[topic].remove(callback)
+                        callback: DispatcherCallable) -> None:
+        ref = _get_weakref(callback)
+
+        if self._is_running:
+            self._set_removal(topic, ref)
+            return
+
+        self._callbacks[topic].remove(ref)
         if not self._callbacks[topic]:
             assert self._conn
             self._conn.unsubscribe(topic)
@@ -322,11 +347,41 @@ class Dispatcher(Device):
                 msg = conn.recv()
             except BrokenPipeError:
                 break
-            for topic, callbacks in self._callbacks.items():
-                if msg.topic.startswith(topic):
-                    for callback in callbacks:
-                        if not conn.is_alive():
-                            break
+
+            saved_state = self._is_running
+            self._is_running = True
+            try:
+                self._run_msg(conn, msg)
+            finally:
+                self._is_running = saved_state
+
+            if not self._is_running and self._pending_removal:
+                self._commit_removals()
+
+    def _commit_removals(self) -> None:
+        for topic, refs in self._pending_removal.items():
+            try:
+                self._callbacks[topic] -= refs
+            except KeyError:
+                continue
+            if not self._callbacks[topic]:
+                del self._callbacks[topic]
+
+    def _run_msg(self, conn: Connection, msg: Message) -> None:
+        for topic, refs in self._callbacks.items():
+            if msg.topic.startswith(topic):
+                for ref in refs:
+                    callback = ref()
+                    if callback is None:
+                        self._set_removal(topic, ref)
+                    elif not conn.is_alive():
+                        return
+                    else:
                         callback(conn, msg)
-                if not conn.is_alive():
-                    break
+
+    def _set_removal(self, topic: str,
+                     ref: weakref.ReferenceType[DispatcherCallable]) -> None:
+        try:
+            self._pending_removal[topic].add(ref)
+        except KeyError:
+            self._pending_removal[topic] = {ref}
