@@ -730,7 +730,7 @@ class Connection:  # pylint: disable=too-many-instance-attributes
 
         if timeout is None and not (messages or responses):
             raise RuntimeError('Infinite timeout needs to '
-                               'pull messages or reponses')
+                               'pull messages or responses')
 
         while True:
             _assert_connected(self._sub)
