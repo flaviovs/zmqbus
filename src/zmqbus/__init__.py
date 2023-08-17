@@ -835,7 +835,7 @@ class Connection:  # pylint: disable=too-many-instance-attributes
         return res
 
     def response(self, req_id: int,
-                 timeout: Optional[Union[float, Any]] = ...) -> Any:
+                 timeout: Union[float, Any, None] = ...) -> Any:
         if req_id not in self._cli_requests:
             raise LookupError(f'No such request #{req_id}')
 
