@@ -24,7 +24,7 @@ def _get_weakref(callback: _TCallable) -> weakref.ReferenceType[_TCallable]:
 
 
 class DeviceParams(NamedTuple):
-    context: zmq.Context[Any] = zmq.Context.instance()
+    context: Optional[zmq.Context[Any]] = None
     timeout: float = 5_000
     keepalive_secs: float = 0
 
