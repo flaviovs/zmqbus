@@ -26,7 +26,7 @@ __all__ = [
     'TOPIC_HALT',
 ]
 
-__version__ = '0.1.0b'
+__version__ = '0.2.0b'
 
 logger = logging.getLogger(__name__)
 
