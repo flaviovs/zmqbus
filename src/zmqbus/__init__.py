@@ -769,6 +769,8 @@ class Connection:  # pylint: disable=too-many-instance-attributes
                     self._enqueue(sender, to, topic, payload)
                     if messages:
                         break
+                    topic = '*'  # Fake message to self to avoid extra
+                                 # processing (see below).
 
             if topic == TOPIC_PING:
                 self._send_pong()
