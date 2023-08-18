@@ -414,3 +414,24 @@ class Random(Device):
             except BrokenPipeError:
                 break
         logger.debug('%r exiting', self.name)
+
+
+class Echo(Device):
+    def __init__(self,
+                 name: Optional[str] = None,
+                 topic: Optional[str] = None,
+                 params: Optional[DeviceParams] = None):
+        super().__init__(name, params)
+        self._topic = topic or self.name
+
+    def init(self, conn: Connection) -> None:
+        conn.subscribe(self._topic)
+
+    def run(self, conn: Connection) -> None:
+        while conn.is_alive():
+            try:
+                msg = conn.recv()
+            except BrokenPipeError:
+                break
+            assert msg.topic == self._topic
+            conn.send(self._topic, msg.payload, to=msg.sender)

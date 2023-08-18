@@ -9,7 +9,7 @@ from threading import Thread, current_thread, enumerate as t_enumerate
 
 from zmqbus import Bus, Connection, halt, Message
 from zmqbus.device import (Device, Pulse, Scheduler, ScheduledMessage,
-                           Clock, PerfMeter, Dispatcher, Random)
+                           Clock, PerfMeter, Dispatcher, Random, Echo)
 from zmqbus.debug import Sniffer, ControlSniffer, PulseTracker
 
 try:
@@ -23,6 +23,9 @@ except ModuleNotFoundError:
         format='%(asctime)s %(levelname).1s %(threadName)s: %(message)s')
 
 logger = logging.getLogger(__name__)
+
+
+TOPIC_ECHO = 'ECHO'
 
 
 class DemoDispatcher(Dispatcher):
@@ -109,12 +112,21 @@ def worker_main(address, authkey, me, delay_secs, workers):
                     to = 'me'
                 else:
                     to = repr(msg.to)
-                logger.info('Got %r from %r sent to %s',
-                            msg.payload, msg.sender, to)
+
+                if msg.topic == TOPIC_ECHO:
+                    logger.info('Got echo response for request sent %.1fs ago',
+                                time.time() - msg.payload)
+                else:
+                    logger.info('Got %r from %r sent to %s',
+                                msg.payload, msg.sender, to)
 
             if workers > 1 and prng.random() < prob:
                 logger.info('Sending message to all workers')
                 conn.send('workers', "Let's work")
+
+            if prng.random() < prob:
+                logger.info('Sending echo request')
+                conn.send(TOPIC_ECHO, time.time())
 
             do_something(lengthy=prng.random() < prob)
 
@@ -277,6 +289,10 @@ def main():
                           args=(address, authkey)))
 
     dev = ControlSniffer(name='ControlSniffer')
+    threads.append(Thread(name=dev.name, target=dev,
+                          args=(address, authkey)))
+
+    dev = Echo(name='Echo', topic=TOPIC_ECHO)
     threads.append(Thread(name=dev.name, target=dev,
                           args=(address, authkey)))
 
