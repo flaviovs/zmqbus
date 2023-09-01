@@ -818,7 +818,7 @@ class Connection:  # pylint: disable=too-many-instance-attributes
             secs -= time.perf_counter() - poll_start
 
     def add_endpoint(self, name: str,
-                     callback: Callable[['Connection'], Any]) -> None:
+                     callback: Callable[..., Any]) -> None:
         self._endpoints[name] = callback
 
     def remove_endpoint(self, name: str) -> None:
